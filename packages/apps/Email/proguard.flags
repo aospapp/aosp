@@ -1,0 +1,5 @@
+#Email-specific proguard flags that are not covered by UnifiedEmail go here
+
+-keepclasseswithmembers class * {
+  public *** newInstance(com.android.emailcommon.provider.Account, android.content.Context);
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="VacationResponderStyle">
+        <item name="android:paddingStart">@dimen/vacation_responder_padding_horizontal_wide</item>
+        <item name="android:paddingEnd">@dimen/vacation_responder_padding_horizontal_wide</item>
+    </style>
+</resources>

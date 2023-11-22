@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="conversation_view_item_background_color">@android:color/white</color>
+</resources>

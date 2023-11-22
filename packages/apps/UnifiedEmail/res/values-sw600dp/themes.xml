@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="MailActivityTheme" parent="@style/UnifiedEmailTheme.Appcompat" />
+
+    <!-- todo - comment out when theme exists -->
+    <!--<style name="ShortcutWidgetTheme" parent="@style/Theme.Appcompat.Light.Dialog.MinWidth">-->
+    <!--<item name="actionOverflowButtonStyle">@style/ActionBarOverflowButtonStyle</item>-->
+    <!--<item name="homeAsUpIndicator">@drawable/ic_arrow_back_wht_24dp</item>-->
+    <!--</style>-->
+
+    <style name="VacationResponderTheme" parent="@style/UnifiedEmailTheme.Appcompat">
+        <item name="android:windowBackground">@color/vacation_responder_background</item>
+    </style>
+</resources>

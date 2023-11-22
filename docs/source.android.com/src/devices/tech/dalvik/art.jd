@@ -1,0 +1,244 @@
+page.title=Introducing ART
+@jd:body
+
+<!--
+    Copyright 2013 The Android Open Source Project
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+
+
+<div id="qv-wrapper">
+<div id="qv">
+  <h2 id="Contents">In this document</h2>
+  <ol id="auto-toc">
+  </ol>
+  <strong>See also</strong>
+  <ol>
+    <li><a
+    href="http://developer.android.com/guide/practices/verifying-apps-art.html">Verifying
+    App Behavior on the Android Runtime (ART)</a></li>
+  </ol>
+</div>
+</div>
+
+<p>
+ART is a new Android runtime being introduced experimentally in the 4.4
+release. This is a preview of work in progress in KitKat that can be turned on
+in <strong>Settings</strong> &gt; <strong>developer options</strong>. This is
+available for the purpose of obtaining early developer and partner feedback.</p>
+
+<p class="caution"><strong>Important:</strong> Dalvik must remain the default
+runtime or you risk breaking your Android implementations and third-party
+applications.</p>
+
+<p>Most existing apps should just work when running with ART. However, some
+techniques that work on Dalvik do not work on ART. For information about the
+most important issues, see <a
+href="http://developer.android.com/guide/practices/verifying-apps-art.html">Verifying
+App Behavior on the Android Runtime (ART)</a>.</p>
+
+<h2 id="features">ART Features</h2>
+
+<p>Here are some of the major new features implemented by ART.</p>
+
+<h3 id="AOT_compilation">Ahead-of-time (AOT) compilation</h3>
+
+<p>ART introduces ahead-of-time (AOT) compilation, which can improve app
+performance. ART also has tighter install-time verification than Dalvik.</p>
+
+<p>At install time, ART compiles apps using the on-device
+<strong>dex2oat</strong> tool. This utility accepts <a
+href="http://source.android.com/devices/tech/dalvik/dex-format.html">DEX</a> files as input and
+generates a compiled app executable for the target device. The utility should be
+able to compile all valid DEX files without difficulty. However, some
+post-processing tools produce invalid files that may be tolerated by Dalvik but
+cannot be compiled by ART. For more information, see  <a
+href="http://developer.android.com/guide/practices/verifying-apps-art.html#GC_Migration">Addressing
+Garbage Collection Issues</a>.</p>
+
+<h3 id="Improved_GC">Improved garbage collection</h3>
+
+<p>Garbage collection (GC) can impair an app's performance, resulting in choppy
+display, poor UI responsiveness, and other problems. ART improves garbage
+collection in several ways:</p>
+
+<ul>
+  <li>One GC pause instead of two</li>
+  <li>Parallelized processing during the remaining GC pause</li>
+  <li>Collector with lower pause time for the special case of cleaning up
+  recently-allocated, short-lived objects</li>
+  <li>Improved garbage collection ergonomics, making concurrent garbage
+  collections more timely, which makes <a
+  href="http://developer.android.com/tools/debugging/debugging-memory.html#LogMessages"><code>GC_FOR_ALLOC</code></a>
+  events extremely rare in typical use cases</li>
+</ul>
+
+<p>ART currently does not use compacting GC, but this feature is under
+development in the <a href="https://source.android.com">Android Open Source
+Project (AOSP)</a>. In the meantime, don't perform operations that are
+incompatible with compacting GC, such as storing pointers to object fields. For
+more information, see <a
+href="http://developer.android.com/guide/practices/verifying-apps-art.html#GC_Migration">Addressing
+Garbage Collection Issues</a>.</p>
+
+<h3 id="Debugging_Imp">Development and debugging improvements</h3>
+
+<p>ART offers a number of features to improve app development and debugging.</p>
+
+<h4 id="Sampling_Profiler">Support for sampling profiler</h4>
+
+<p>Historically, developers have used the <a
+href=" http://developer.android.com/tools/help/traceview.html">Traceview</a>
+tool (designed for tracing
+application execution) as a profiler. While Traceview gives useful information,
+its results on Dalvik have been skewed by the per-method-call overhead, and use
+of the tool noticeably affects run time performance.</p>
+
+<p>ART adds support for a dedicated sampling profiler that does not have these
+limitations. This gives a more accurate view of app execution without
+significant slowdown. Sampling support has also been added to Traceview for
+Dalvik.</p>
+
+<h4 id="Debugging_Features">Support for more debugging features</h4>
+
+<p>ART supports a number of new debugging options, particularly in monitor- and
+garbage collection-related functionality. For example, you can:</p>
+
+<ul>
+  <li>See what locks are held in stack traces, then jump to the thread that
+      holds a lock.</li>
+  <li>Ask how many live instances there are of a given class, ask to see the
+      instances, and see what references are keeping an object live.</li>
+  <li>Filter events (like breakpoint) for a specific instance.</li>
+  <li>See the value returned by a method when it exits (using “method-exit”
+      events).</li>
+  <li>Set field watchpoint to suspend the execution of a program when a specific
+      field is accessed and/or modified.</li>
+</ul>
+
+<h4 id="Crash_Reports">Improved diagnostic detail in exceptions and crash reports</h4>
+
+<p>ART gives you as much context and detail as possible when runtime exceptions
+occur.  ART provides expanded exception detail for <code><a
+href="http://developer.android.com/reference/java/lang/ClassCastException.html">java.lang.ClassCastException</a></code>,
+<code><a
+href="http://developer.android.com/reference/java/lang/ClassNotFoundException.html">java.lang.ClassNotFoundException</a></code>,
+and <code><a
+href="http://developer.android.com/reference/java/lang/NullPointerException.html">java.lang.NullPointerException</a></code>.
+(Later versions of Dalvik provided expanded exception detail for <code><a
+href="http://developer.android.com/reference/java/lang/ArrayIndexOutOfBoundsException.html">java.lang.ArrayIndexOutOfBoundsException</a></code>
+and <code><a
+href="http://developer.android.com/reference/java/lang/ArrayStoreException.html">java.lang.ArrayStoreException</a></code>,
+which now include the size of the array and the out-of-bounds offset, and ART
+does this as well.)</p>
+
+<p>For example, <code><a
+href="http://developer.android.com/reference/java/lang/NullPointerException.html">java.lang.NullPointerException</a></code>
+now shows information about what the app was trying to do with the null pointer,
+such as the field the app was trying to write to, or the method it was trying to
+call. Here are some typical examples:</p>
+
+<pre class="no-pretty-print">
+java.lang.NullPointerException: Attempt to write to field 'int
+android.accessibilityservice.AccessibilityServiceInfo.flags' on a null object
+reference</pre>
+
+<pre class="no-pretty-print">
+java.lang.NullPointerException: Attempt to invoke virtual method
+'java.lang.String java.lang.Object.toString()' on a null object reference</pre>
+
+<p>ART also provides improved context information in app native crash reports,
+by including both Java and native stack information. </p>
+
+<h2 id="Known_Issues">Known Issues</h2>
+
+<p>The following known issues are present in the 4.4.1 implementation of ART.</p>
+
+<ul>
+
+  <li><em>Compile-time issue:</em> As noted above, ART flags unbalanced
+  <code>monitorenter</code>/<code>moniterexit</code> instructions. We relaxed
+  this check in 4.4.1 but intend to restore this verification in the future once
+  tools are fixed, as this check is necessary for certain compiler
+  optimizations. <a
+  href="https://code.google.com/p/android/issues/detail?id=61916">https://code.google.com/p/android/issues/detail?id=61916</a></li>
+
+  <li><em>Run-time issue:</em> There was an issue where JNI
+  <code>GetFieldID</code> and <code>GetStaticFieldID</code> were using the wrong
+  class loader on unattached threads, often leading to later CheckJNI errors or
+  NoSuchFieldError exceptions. <a
+  href="http://code.google.com/p/android/issues/detail?id=63970">http://code.google.com/p/android/issues/detail?id=63970</a></li>
+
+  <li><em>Run-time issue:</em> Calling JNI <code>NewDirectByteBuffer()</code>
+  with byte size of <code>0</code> led to the following CheckJNI error: <pre
+  class="no-pretty-print"> JNI DETECTED ERROR IN APPLICATION: capacity must be
+  greater than 0: 0</pre> <a
+  href="http://code.google.com/p/android/issues/detail?id=63055">http://code.google.com/p/android/issues/detail?id=63055</a></li>
+
+</ul>
+
+<h3 id="Fixed_Issues">Fixed issues</h3>
+
+<ul>
+
+  <li><em>Compile-time issue:</em> Overly aggressive verification and
+  compilation of unused portions of dex files lead to corrupt package messages.
+  This was addressed in AOSP with: <a
+  href="https://android-review.googlesource.com/#/c/72374/">https://android-review.googlesource.com/#/c/72374/</a></li>
+
+  <li><em>Debug-time issue:</em> Interactive debugging performance was slow,
+  even in code without breakpoints. This has been addressed in the latest AOSP
+  code.</li>
+
+</ul>
+
+<h2 id="building">Enabling ART in Android Build</h2>
+
+<p> Two runtimes are now available, the existing Dalvik runtime
+(<code>libdvm.so</code>) and the ART runtime (<code>libart.so</code>). A device
+can be built using either or both runtimes. (You can dual boot from
+<strong>Developer options</strong> if both runtimes are installed.) See
+runtime_common.mk. That is included from build/target/product/runtime_libdvm.mk
+or build/target/product/runtime_libdvm.mk or both.</p>
+
+<p> The <code>dalvikvm</code> command line tool can run with either runtime now.
+It will default to using the runtime specified in <strong>developer
+options</strong>. The default can be overridden by specifying the desired
+runtime library, for example with <code>-XXlib:libart.so</code> </p>
+
+<p>
+A new <code>PRODUCT_RUNTIMES</code> variable controls which runtimes
+are included in a build. Include it within either
+<code>build/target/product/core_minimal.mk</code> or
+<code>build/target/product/core_base.mk</code>.
+</p>
+
+<p>
+Add this to the device makefile to have both runtimes
+built and installed, with Dalvik as the default:
+</br>
+<code>PRODUCT_RUNTIMES := runtime_libdvm_default</code>
+</br>
+<code>PRODUCT_RUNTIMES += runtime_libart</code>
+</p>
+
+<h2 id="Reporting_Problems">Reporting Problems</h2>
+
+<p>If you run into any issues that aren’t due to app JNI issues, please report
+them via the Android Open Source Project Issue Tracker at <a
+href="https://code.google.com/p/android/issues/list">https://code.google.com/p/android/issues/list</a>.
+Please include an <code>"adb bugreport"</code> and link to the app in Google
+Play store if available. Otherwise, if possible, attach an APK that reproduces
+the issue. Please note that issues (including attachments) are publicly
+visible.</p>

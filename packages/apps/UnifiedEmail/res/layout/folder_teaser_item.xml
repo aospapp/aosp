@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2013 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="56dp"
+    android:background="@drawable/folder_teaser_item_background">
+
+    <ImageView
+        android:id="@+id/folder_imageView"
+        android:layout_width="24dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:duplicateParentState="true"
+        style="@style/FolderTeaserMarginStartStyle" />
+
+    <LinearLayout
+        android:id="@+id/text_layout"
+        android:layout_width="0dip"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_gravity="center_vertical"
+        android:duplicateParentState="true"
+        android:orientation="vertical"
+        style="@style/FolderTeaserLabelMarginStyle" >
+
+        <TextView
+            android:id="@+id/folder_textView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:duplicateParentState="true"
+            android:includeFontPadding="false"
+            android:textColor="@color/folder_teaser_main_text"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/senders_textView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:duplicateParentState="true"
+            android:includeFontPadding="false"
+            android:fontFamily="sans-serif-light"
+            android:textColor="@color/folder_teaser_senders_text"
+            android:textSize="12sp"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/count_textView"
+        android:layout_width="57sp"
+        android:layout_height="20sp"
+        android:layout_gravity="center_vertical"
+        android:gravity="center"
+        android:textColor="@color/folder_teaser_count_text"
+        android:textSize="14sp"
+        style="@style/FolderTeaserMarginEndStyle" />
+
+</LinearLayout>

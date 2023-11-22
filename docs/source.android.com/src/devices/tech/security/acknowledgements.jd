@@ -1,0 +1,106 @@
+page.title=Android Security Acknowledgements
+@jd:body
+
+<!--
+    Copyright 2014 The Android Open Source Project
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+
+<p>The Android Security Team would like to thank the following people and
+parties for helping to improve Android security. They have done this either by
+finding and responsibly reporting security vulnerabilities to <a
+href="mailto:security@android.com">security@android.com</a> or by committing code
+that has a positive impact on Android security, including code that qualifies
+for the <a href="https://www.google.com/about/appsecurity/patch-rewards/">Patch
+Rewards</a> program.</p>
+
+<h2>2014</h2>
+
+<p>Jeff Forristal of <a href="http://www.bluebox.com/blog/">Bluebox
+Security</a></p>
+
+<p>Aaron Mangeli of <a href="https://banno.com/">Banno</a> (<a
+href="mailto:amangel@gmail.com">amangel@gmail.com</a>)</p>
+
+<p><a href="http://www.linkedin.com/in/tonytrummer/">Tony Trummer</a> of <a
+href="http://www.themeninthemiddle.com">The Men in the Middle</a> (<a
+href="https://twitter.com/SecBro1">@SecBro1</a>)</p>
+
+<p><a href="http://www.samsung.com">Samsung Mobile</a></p>
+
+<p>Henry Hoggard of <a href="https://labs.mwrinfosecurity.com/">MWR Labs</a> (<a
+href="https://twitter.com/henryhoggard">@HenryHoggard</a>)</p>
+<p></p>
+
+<p><a href="http://www.androbugs.com">Yu-Cheng Lin 林禹成</a> (<a
+href="https://twitter.com/AndroBugs">@AndroBugs</a>)</p>
+
+<p><a
+href="http://www.ec-spride.tu-darmstadt.de/en/research-groups/secure-software-engineering-group/staff/siegfried-rasthofer/">Siegfried
+Rasthofer</a> of <a href="http://sseblog.ec-spride.de/">Secure Software
+Engineering Group</a>, EC SPRIDE Technische Universität Darmstadt (<a
+href="mailto:siegfried.rasthofer@gmail.com">siegfried.rasthofer@gmail.com</a>)</p>
+
+<p>Steven Artz of <a href="http://sseblog.ec-spride.de/">Secure Software
+Engineering Group</a>, EC SPRIDE Technische Universität Darmstadt (<a
+href="mailto:Steven.Arzt@ec-spride.de">Steven.Arzt@ec-spride.de</a>)</p>
+
+<p><a href="http://blog.redfern.me/">Joseph Redfern</a> of <a
+href="https://labs.mwrinfosecurity.com/">MWR Labs</a> (<a
+href="https://twitter.com/JosephRedfern">@JosephRedfern</a>)</p>
+
+<p><a href="https://plus.google.com/u/0/109528607786970714118">Valera
+Neronov</a></p>
+
+<p><a href="https://github.com/michalbednarski">Michał Bednarski</a></p>
+
+<p><a href="http://www.linkedin.com/in/luander">Luander Michel Ribeiro</a> (<a
+href="https://twitter.com/luanderock">@luanderock</a>)</p>
+
+<p>Stephan Huber of Testlab Mobile Security, <a
+href="https://www.sit.fraunhofer.de/">Fraunhofer SIT</a> (<a
+href="mailto:Stephan.Huber@sit.fraunhofer.de">Stephan.Huber@sit.fraunhofer.de</a>)</p>
+
+<p><a href="http://www.corkami.com">Ange Albertini</a> (<a
+href="https://twitter.com/angealbertini">@angealbertini</a>)</p>
+
+<p><a href="https://www.linkedin.com/in/tdalvi">Tushar Dalvi</a> (<a
+href="https://twitter.com/tushardalvi">@tushardalvi</a>)</p>
+
+<p>Axelle Apvrille of Fortinet, FortiGuards Labs</p>
+
+<p>Tongxin Li of Peking University (<a
+href="mailto:litongxin1991@gmail.com">litongxin1991@gmail.com</a>)</p>
+
+<p><a href="https://www.facebook.com/zhou.xiaoyong">Xiaoyong Zhou</a> of <a
+href="http://www.cs.indiana.edu/~zhou/">Indiana University Bloomington</a> (<a
+href="https://twitter.com/xzhou">@xzhou</a>, <a
+href="mailto:zhou.xiaoyong@gmail.com">zhou.xiaoyong@gmail.com</a>)</p>
+
+<p><a href="http://homes.soic.indiana.edu/luyixing">Luyi Xing</a> of Indiana
+University Bloomington (<a
+href="mailto:xingluyi@gmail.com">xingluyi@gmail.com</a>)</p>
+
+<p>Yeonjoon Lee of Indiana University Bloomington (<a
+href="mailto:luc2yj@gmail.com">luc2yj@gmail.com</a>)</p>
+
+<p><a href="http://www.informatics.indiana.edu/xw7/">Xiaofeng Wang</a> of
+Indiana University Bloomington (<a
+href="mailto:xw7@indiana.edu">xw7@indiana.edu</a>)</p>
+
+<p>Xinhui Han of Peking University (<a
+href="mailto:hanxinhui@pku.edu.cn">hanxinhui@pku.edu.cn</a>)</p>
+
+<br>
+<p><small>If you have reported a vulnerability prior to 2014 and want to be included on this list, or to report a vulnerability in Android, contact <a href="mailto:security@android.com">security@android.com</a></small></p>

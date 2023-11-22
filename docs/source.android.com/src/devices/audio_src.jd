@@ -1,0 +1,158 @@
+page.title=Sample Rate Conversion
+@jd:body
+
+<!--
+    Copyright 2013 The Android Open Source Project
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<div id="qv-wrapper">
+  <div id="qv">
+    <h2>In this document</h2>
+    <ol id="auto-toc">
+    </ol>
+  </div>
+</div>
+
+<p>
+See the Wikipedia article
+<a class="external-link" href="http://en.wikipedia.org/wiki/Resampling_(audio)" target="_android">Resampling (audio)</a>
+for a generic definition of sample rate conversion, also known as "resampling."
+The remainder of this article describes resampling within Android.
+</p>
+
+<p>
+Sample rate conversion is the process of changing a
+stream of discrete samples at one sample rate to another stream at
+another sample rate.  A sample rate converter, or resampler, is a module
+that implements sample rate conversion.  With respect to the resampler,
+the original stream is called the source signal, and the resampled stream is
+the sink signal.
+</p>
+
+<p>
+Resamplers are used in several places in Android.
+For example, an MP3 file may be encoded at 44.1 kHz sample rate and
+needs to be played back on an Android device supporting 48 kHz audio
+internally. In that case, a resampler would be used to upsample the MP3
+output audio from 44.1 kHz source sample rate to a 48 kHz sink sample rate
+used within the Android device.
+</p>
+
+<p>
+The characteristics of a resampler can be expressed using metrics, including:
+</p>
+
+<ul>
+<li>degree of preservation of the overall amplitude of the signal</li>
+<li>degree of preservation of the frequency bandwidth of the signal,
+    subject to limitations of the sink sample rate</li>
+<li>overall latency through the resampler</li>
+<li>consistent phase and group delay with respect to frequency</li>
+<li>computational complexity, expressed in CPU cycles or power draw</li>
+<li>permitted ratios of source and sink sample rates</li>
+<li>ability to dynamically change sample rate ratios</li>
+<li>which digital audio sample formats are supported</li>
+</ul>
+
+<p>
+The ideal resampler would exactly preserve the source signal's amplitude
+and frequency bandwidth (subject to limitations of the sink
+sample rate), have minimal and consistent delay, have minimal
+computational complexity, permit arbitrary and dynamic conversion ratios,
+and support all common digital audio sample formats.
+In practice, ideal resamplers do not exist, and actual resamplers are
+a compromise among these characteristics.
+For example, the goals of ideal quality conflict with short delay and low complexity.
+</p>
+
+<p>
+Android includes a variety of audio resamplers, so that appropriate
+compromises can be made depending on the application use case and load.
+Section <a href="#srcResamplers">Resampler implementations</a>
+below lists the available resamplers, summarizes their characteristics,
+and identifies where they should typically be used.
+</p>
+
+<h2 id="srcTerms">Terminology</h2>
+
+<dl>
+
+<dt>downsample</dt>
+<dd>to resample, where sink sample rate &lt; source sample rate</dd>
+
+<dt>Nyquist frequency</dt>
+<dd>
+The Nyquist frequency, equal to 1/2 of a given sample rate, is the
+maximum frequency component that can be represented by a discretized
+signal at that sample rate.  For example, the human hearing range is
+typically assumed to extend up to approximately 20 kHz, and so a digital
+audio signal must have a sample rate of at least 40 kHz to represent that
+range.  In practice, sample rates of 44.1 kHz and 48 kHz are commonly
+used, with Nyquist frequencies of 22.05 kHz and 24 kHz respectively.
+See the Wikipedia articles
+<a class="external-link" href="http://en.wikipedia.org/wiki/Nyquist_frequency" target="_android">Nyquist frequency</a>
+and
+<a class="external-link" href="http://en.wikipedia.org/wiki/Hearing_range" target="_android">Hearing range</a>
+for more information.
+</dd>
+
+<dt>resampler</dt>
+<dd>synonym for sample rate converter</dd>
+
+<dt>resampling</dt>
+<dd>the process of converting sample rate</dd>
+
+<dt>sample rate converter</dt>
+<dd>a module that resamples</dd>
+
+<dt>sink</dt>
+<dd>the output of a resampler</dd>
+
+<dt>source</dt>
+<dd>the input to a resampler</dd>
+
+<dt>upsample</dt>
+<dd>to resample, where sink sample rate &gt; source sample rate</dd>
+
+</dl>
+
+<h2 id="srcResamplers">Resampler implementations</h2>
+
+<p>
+Available resampler implementations change frequently,
+and may be customized by OEMs.
+As of Android 4.4, the default resamplers
+in descending order of signal distortion, and ascending order of
+computational complexity include:
+</p>
+
+<ul>
+<li>linear</li>
+<li>cubic</li>
+<li>sinc with original coefficients</li>
+<li>sinc with revised coefficients</li>
+</ul>
+
+<p>
+In general, the sinc resamplers are more appropriate for higher-quality
+music playback, and the other resamplers should be reserved for cases
+where quality is less important (an example might be "key clicks" or similar).
+</p>
+
+<p>
+The specific resampler implementation selected depends on
+the use case, load, and the value of system property
+<code>af.resampler.quality</code>.  For details,
+consult the audio resampler source code in AudioFlinger.
+</p>

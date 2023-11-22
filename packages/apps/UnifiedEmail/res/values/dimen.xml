@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2011 Google Inc.
+     Licensed to The Android Open Source Project.
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+
+<resources>
+    <dimen name="account_avatar_dimension">48dp</dimen>
+    <dimen name="drawer_width">300dp</dimen>
+    <dimen name="two_pane_drawer_width_mini">72dp</dimen>
+    <dimen name="two_pane_drawer_width_open">288dp</dimen>
+    <dimen name="two_pane_tl_side">24dp</dimen>
+    <dimen name="two_pane_tl_top">16dp</dimen>
+    <dimen name="list_min_width_is_wide">720dp</dimen>
+    <dimen name="senders_font_size">18sp</dimen>
+    <dimen name="attachment_tile_min_size">120dp</dimen>
+    <dimen name="attachment_tile_max_size">164dp</dimen>
+    <dimen name="attachment_tile_padding">8dp</dimen>
+    <dimen name="compose_scrollview_max_width">768dp</dimen>
+    <dimen name="color_block_width">32dip</dimen>
+    <dimen name="color_block_height">6dip</dimen>
+    <!-- The star is pretty small and does not have padding anymore, so the slop needs to be bigger-->
+    <dimen name="star_touch_slop">16dip</dimen>
+    <dimen name="sender_image_touch_slop">8dip</dimen>
+    <dimen name="standard_scaled_dimen">100sp</dimen>
+
+    <!-- TL folder chips -->
+    <dimen name="folders_text_bottom_padding">3dp</dimen>
+    <dimen name="folder_cell_content_padding">6dp</dimen>
+    <dimen name="folders_start_padding">6dp</dimen>
+    <dimen name="folders_gradient_padding">8dp</dimen>
+
+    <dimen name="conversation_page_gutter">16dp</dimen>
+    <dimen name="conversation_message_content_margin_side">16dp</dimen>
+    <dimen name="conversation_view_margin_side">16dp</dimen>
+    <dimen name="conversation_header_font_size">20sp</dimen>
+    <dimen name="conversation_header_padding_side">16dp</dimen>
+    <dimen name="conversation_header_star_size">52dp</dimen>
+    <dimen name="conversation_border_margin_side">0dp</dimen>
+    <dimen name="conversation_folder_font_size">12sp</dimen>
+    <dimen name="conversation_folder_padding">1dp</dimen>
+    <dimen name="conversation_folder_padding_extra_width">8dp</dimen>
+    <dimen name="conversation_folder_padding_after">8dp</dimen>
+    <dimen name="folder_rounded_corner_radius">1dp</dimen>
+    <dimen name="conversation_folder_margin_top">6dp</dimen>
+    <dimen name="message_details_header_padding_start_expanded">72dip</dimen>
+    <dimen name="message_details_header_padding_end">16dp</dimen>
+    <dimen name="message_details_header_vertical_padding">7dp</dimen>
+    <dimen name="message_show_pics_header_padding_end">14dip</dimen>
+    <dimen name="message_header_icon_additional_margin_start">16dp</dimen>
+    <dimen name="message_header_action_button_width">48dp</dimen>
+    <dimen name="message_header_action_button_height">48dp</dimen>
+    <dimen name="message_header_action_button_margin_top">0dp</dimen>
+    <dimen name="message_sender_name_text_size">16sp</dimen>
+    <dimen name="message_header_subtitle_text_size">14sp</dimen>
+    <dimen name="message_header_small_text_size">12sp</dimen>
+    <dimen name="message_header_text_margin_top">14dp</dimen>
+    <dimen name="message_header_margin_bottom">12dp</dimen>
+    <dimen name="super_collapsed_height">30sp</dimen>
+    <dimen name="super_collapsed_text_size">16sp</dimen>
+    <dimen name="super_collapsed_stroke_margin_start">0dp</dimen>
+    <dimen name="notification_view_height">36dp</dimen>
+    <dimen name="contact_image_width">40dp</dimen>
+    <dimen name="contact_image_height">40dp</dimen>
+    <dimen name="message_header_icon_margin">16dp</dimen>
+    <dimen name="message_header_inner_side_padding">16dp</dimen>
+    <dimen name="attachment_toast_yoffset">-100dip</dimen>
+    <dimen name="floating_action_bar_margin">16dp</dimen>
+    <dimen name="snack_bar_margin_horizontal">24dp</dimen>
+    <dimen name="snack_bar_margin_vertical">14dp</dimen>
+    <dimen name="folder_selection_margin_start">16dp</dimen>
+    <dimen name="folder_selection_margin_end">24dp</dimen>
+    <dimen name="folder_list_heading_padding_side">16dp</dimen>
+    <dimen name="folder_list_heading_padding_bottom">8dp</dimen>
+    <dimen name="folder_list_heading_padding_top">12dp</dimen>
+    <dimen name="folder_list_item_start_margin">16dp</dimen>
+    <dimen name="folder_list_item_text_start_margin">32dp</dimen>
+    <dimen name="folder_list_item_end_margin">8dp</dimen>
+    <!-- Let's try to keep this consistent with color_block_height above, unless there's a good reason not to. -->
+    <dimen name="folder_swatch_height">6dip</dimen>
+    <dimen name="folder_list_popup_width">200dip</dimen>
+    <dimen name="folder_list_folder_color_width">36dip</dimen>
+    <dimen name="folder_list_item_minimum_height">48dip</dimen>
+    <dimen name="folder_list_item_left_offset">9dp</dimen>
+    <dimen name="account_item_margin_start">14dp</dimen>
+    <dimen name="account_item_margin_end">8dp</dimen>
+    <dimen name="account_item_minimum_height">48dip</dimen>
+    <dimen name="account_item_swatch_height">8dip</dimen>
+    <dimen name="account_item_folder_color_width">36dip</dimen>
+    <dimen name="drawer_footer_item_padding">16dp</dimen>
+    <dimen name="drawer_footer_text_padding_start">32dp</dimen>
+    <dimen name="drawer_footer_item_minimum_height">48dp</dimen>
+    <dimen name="drawer_item_font_size">16sp</dimen>
+    <dimen name="widget_subject_font_size">13sp</dimen>
+    <dimen name="widget_date_font_size">12sp</dimen>
+    <dimen name="widget_margin_top">0dip</dimen>
+    <dimen name="widget_margin_left">0dip</dimen>
+    <dimen name="widget_margin_right">0dip</dimen>
+    <dimen name="widget_margin_bottom">0dip</dimen>
+    <dimen name="search_view_width">400dip</dimen>
+    <dimen name="wait_padding">16dp</dimen>
+    <integer name="chips_max_lines">2</integer>
+    <dimen name="tile_letter_font_size">24dp</dimen>
+    <dimen name="tile_letter_font_size_small">16dp</dimen>
+    <dimen name="tile_divider_width">1dp</dimen>
+    <dimen name="dismiss_button_padding_start">20dip</dimen>
+    <dimen name="dismiss_button_padding_end">28dip</dimen>
+    <dimen name="checked_text_padding">16dip</dimen>
+    <dimen name="send_mail_as_padding">8dip</dimen>
+    <dimen name="undo_text_padding">16dip</dimen>
+    <dimen name="dismiss_separator_padding">16dip</dimen>
+    <dimen name="teaser_text_padding">16dip</dimen>
+    <dimen name="attachment_padding_start">16dp</dimen>
+    <dimen name="attachment_padding_end">16dp</dimen>
+    <dimen name="attachment_icon_padding">5dip</dimen>
+    <dimen name="recipient_summary_margin">16dip</dimen>
+
+    <!-- Minimum width of the folder teaser count TextView -->
+    <dimen name="folder_teaser_count_textview_minwidth">68dp</dimen>
+
+    <dimen name="compose_attachment_text_padding">8dip</dimen>
+
+    <dimen name="toast_bar_margin">4dip</dimen>
+
+    <dimen name="vacation_responder_width">800dip</dimen>
+    <dimen name="vacation_responder_padding_vertical">16dip</dimen>
+    <dimen name="vacation_responder_padding_horizontal">16dip</dimen>
+    <dimen name="vacation_responder_padding_horizontal_wide">80dip</dimen>
+    <dimen name="vacation_responder_inner_padding">12dip</dimen>
+    <dimen name="vacation_responder_padding_between_date_spinners">8dip</dimen>
+
+    <dimen name="new_message_button_padding">24dip</dimen>
+
+    <dimen name="message_attachment_bar_padding">8dip</dimen>
+
+    <dimen name="widget_senders_padding_end">16dip</dimen>
+    <dimen name="widget_attachment_padding_end">8dp</dimen>
+
+    <dimen name="search_results_padding">16dp</dimen>
+    <dimen name="search_banner_text_size">12sp</dimen>
+
+    <!-- conversation list dimensions -->
+    <dimen name="conv_list_padding">16dip</dimen>
+    <dimen name="conv_list_card_border_padding">8dip</dimen>
+    <dimen name="conv_list_no_border_padding">0dip</dimen>
+    <dimen name="conv_list_contact_image_padding_end">16dp</dimen>
+    <dimen name="conv_list_reply_state_padding_end">8dip</dimen>
+    <dimen name="conv_list_personal_indicator_padding_start">-2dip</dimen>
+    <dimen name="conv_list_personal_indicator_padding_end">2dip</dimen>
+    <dimen name="conv_list_info_icon_padding_start">4dip</dimen>
+    <dimen name="conv_list_date_padding_start">8dip</dimen>
+    <dimen name="conv_list_paperclip_padding_start">6dip</dimen>
+    <dimen name="conv_list_star_padding_start">8dp</dimen>
+
+    <dimen name="conv_list_wide_padding_start">20dip</dimen>
+    <dimen name="conv_list_wide_padding_end">32dip</dimen>
+    <dimen name="conv_list_wide_contact_image_padding_end">20dip</dimen>
+    <dimen name="conv_list_wide_personal_indicator_padding_end">8dip</dimen>
+    <dimen name="conv_list_wide_star_padding_start">32dip</dimen>
+    <dimen name="conv_list_wide_color_block_padding_end">64dip</dimen>
+    <dimen name="conv_list_divider_inset">72dp</dimen>
+
+    <dimen name="conv_list_spacious_padding_start">22dip</dimen>
+    <dimen name="conv_list_spacious_padding_end">16dip</dimen>
+    <dimen name="conv_list_spacious_contact_image_padding_end">16dip</dimen>
+    <dimen name="conv_list_spacious_star_padding_end">-8dip</dimen>
+
+    <dimen name="badge_padding_extra_width">6dip</dimen>
+    <dimen name="badge_rounded_corner_radius">2dip</dimen>
+
+    <dimen name="custom_from_inner_padding">6dip</dimen>
+
+    <dimen name="compose_attachment_tile_text_end_padding">4dip</dimen>
+
+    <dimen name="folder_teaser_start_padding">24dp</dimen>
+    <dimen name="folder_teaser_end_padding">16dp</dimen>
+
+    <dimen name="folder_teaser_label_start_padding">24dp</dimen>
+    <dimen name="folder_teaser_label_end_padding">16dp</dimen>
+
+    <dimen name="teaser_arrow_margin_start">16dip</dimen>
+    <dimen name="teaser_arrow_margin_end">12dip</dimen>
+
+    <dimen name="empty_view_text_width">228dip</dimen>
+    <dimen name="empty_view_text_size">22sp</dimen>
+    <dimen name="empty_view_space">16dip</dimen>
+
+    <dimen name="avatar_border_width">.5dp</dimen>
+    <dimen name="progress_bar_height">12dp</dimen>
+
+    <dimen name="undo_description_padding">16dip</dimen>
+    <dimen name="undo_icon_padding_start">12dip</dimen>
+    <dimen name="undo_icon_padding_end">8dip</dimen>
+
+    <!-- The width of the wearable image background. -->
+    <dimen name="wearable_background_width">320dp</dimen>
+    <!-- The height of the wearable image background. -->
+    <dimen name="wearable_background_height">320dp</dimen>
+
+    <dimen name="compose_wrapper_top_padding">0dp</dimen>
+    <dimen name="compose_wrapper_side_padding">0dp</dimen>
+    <dimen name="compose_header_btn_padding">8dp</dimen>
+    <dimen name="compose_header_min_height">56dp</dimen>
+    <dimen name="compose_header_text_size">16sp</dimen>
+    <dimen name="compose_area_start_padding">0dp</dimen>
+    <dimen name="compose_area_end_padding">0dp</dimen>
+    <dimen name="compose_content_start_padding">16dp</dimen>
+    <dimen name="compose_content_end_padding">16dp</dimen>
+    <dimen name="quoted_text_checkbox_margin_offset">-6dp</dimen>
+
+    <dimen name="chip_wrapper_start_padding">72dp</dimen>
+
+    <!-- Standard height for all dividers -->
+    <dimen name="divider_height">0.5dp</dimen>
+
+    <dimen name="account_item_name_start_padding">16dp</dimen>
+    <dimen name="account_item_name_end_padding">8dp</dimen>
+</resources>

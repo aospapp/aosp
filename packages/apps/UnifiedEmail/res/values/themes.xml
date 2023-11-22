@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="UnifiedEmailTheme" parent="@android:style/Theme.Holo.Light.DarkActionBar">
+        <item name="android:actionBarStyle">@style/ActionBarStyle</item>
+        <item name="android:actionModeBackground">@color/action_mode_background</item>
+        <item name="android:actionOverflowButtonStyle">@style/ActionBarOverflowButtonStyle</item>
+        <item name="android:homeAsUpIndicator">@drawable/ic_arrow_back_wht_24dp</item>
+        <item name="android:listViewWhiteStyle">@android:style/Widget.Holo.Light.ListView</item>
+    </style>
+
+    <style name="UnifiedEmailTheme.Appcompat" parent="@style/Theme.AppCompat.Light.DarkActionBar">
+        <item name="actionModeBackground">@color/action_mode_background</item>
+        <item name="actionOverflowButtonStyle">@style/ActionBarOverflowButtonStyle.Appcompat</item>
+        <item name="colorPrimary">@color/actionbar_color</item>
+        <!-- Used by the StatusBar and NavBar (currently broken?) -->
+        <item name="colorPrimaryDark">@color/statusbar_color</item>
+        <item name="colorAccent">@color/accent_blue</item>
+        <item name="homeAsUpIndicator">@drawable/ic_arrow_back_wht_24dp</item>
+    </style>
+
+    <style name="UnifiedEmailTheme.Appcompat.Toolbar" parent="@style/UnifiedEmailTheme.Appcompat">
+        <item name="android:windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowActionModeOverlay">true</item>
+    </style>
+
+    <style name="MailActivityTheme" parent="@style/UnifiedEmailTheme.Appcompat.Toolbar" />
+
+    <style name="ComposeTheme" parent="@style/UnifiedEmailTheme.Appcompat">
+        <item name="android:colorBackground">@android:color/white</item>
+        <item name="android:colorBackgroundCacheHint">@android:color/white</item>
+        <item name="android:dropDownListViewStyle">@style/ComposeDropdownListViewStyle</item>
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+    <style name="ComposeDropdownListViewStyle">
+        <item name="android:dividerHeight">0dp</item>
+    </style>
+
+    <style name="VacationResponderTheme" parent="@style/UnifiedEmailTheme.Appcompat" />
+
+    <style name="ShortcutWidgetTheme" parent="@style/UnifiedEmailTheme.Appcompat" />
+
+    <style name="InvisibleShortcutWidgetTheme" parent="@style/ShortcutWidgetTheme">
+        <item name="android:windowNoDisplay">true</item>
+    </style>
+
+</resources>

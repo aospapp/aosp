@@ -1,0 +1,17 @@
+apply plugin: 'android-library'
+
+android {
+    sourceSets {
+        main {
+            java.srcDirs         = ['src']
+            resources.srcDirs    = ['res']
+            res.srcDirs          = ['src']
+            manifest.srcFile 'AndroidManifest.xml'
+        }
+    }
+
+    lintOptions {
+        // TODO: fix errors and reenable.
+        abortOnError false
+    }
+}

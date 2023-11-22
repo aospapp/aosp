@@ -1,0 +1,8 @@
+
+
+
+page.tags="CustomTransition"
+sample.group=UI
+@jd:body
+
+<p>This sample demonstrates how to create and use a custom {@link android.transition.Transition}.</p>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2013 Google Inc.
+     Licensed to The Android Open Source Project.
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:tools="http://schemas.android.com/tools"
+            android:layout_gravity="center_horizontal|top"
+            android:fillViewport="true"
+            style="@style/VacationResponderScrollViewStyle">
+
+    <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="@dimen/vacation_responder_padding_vertical"
+            android:paddingBottom="@dimen/vacation_responder_padding_vertical"
+            android:background="@color/vacation_responder_foreground"
+            style="@style/VacationResponderStyle">
+
+        <Switch android:id="@+id/vacation_responder_switch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dip"
+                android:text="@string/preferences_vacation_responder_title"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                style="@style/VacationResponderSwitch"/>
+
+        <LinearLayout android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:layout_marginBottom="-12dip"
+                      android:minHeight="24dip">
+
+            <TextView android:text="@string/pick_start_date_title"
+                      style="@style/VactionResponderStartDateLabel" />
+
+            <TextView android:text="@string/pick_end_date_title"
+                      style="@style/VactionResponderEndDateLabel" />
+
+        </LinearLayout>
+
+        <LinearLayout android:layout_width="match_parent"
+                      android:layout_height="wrap_content"
+                      android:layout_marginTop="-6dip">
+
+            <Button android:id="@+id/start_date"
+                    android:layout_width="0dip"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    style="@style/VactionResponderStartDateSpinner" />
+
+            <Button android:id="@+id/end_date"
+                    android:layout_width="0dip"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    style="@style/VactionResponderEndDateSpinner"/>
+
+        </LinearLayout>
+
+        <RelativeLayout style="@style/ComposeFieldLayout">
+            <!-- Subject: localization cannot control what field pressing tab
+                 will bring the user to. This is controlled at runtime.  -->
+            <com.android.mail.compose.EnterSubject
+                    android:id="@+id/subject"
+                    style="@style/VacationResponderSubject" />
+        </RelativeLayout>
+
+        <RelativeLayout android:layout_height="wrap_content"
+                        android:layout_width="match_parent"
+                        android:id="@+id/body_wrapper"
+                        style="@style/ComposeFieldLayout">
+
+            <EditText android:id="@+id/body"
+                      android:hint="@string/vacation_responder_body_hint_text"
+                      style="@style/VacationResponderBody" />
+
+        </RelativeLayout>
+
+        <CheckedTextView android:id="@+id/checkbox_send_to_contacts"
+                         android:text="@string/send_to_contacts_text"
+                         style="@style/VacationResponderCheckBox" />
+
+        <CheckedTextView android:id="@+id/checkbox_send_to_domain"
+                         tools:text="Send only to Google.com"
+                         style="@style/VacationResponderCheckBox" />
+    </LinearLayout>
+</ScrollView>
